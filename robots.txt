@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://danielloubaque.github.io/domyra-site/sitemap.xml
