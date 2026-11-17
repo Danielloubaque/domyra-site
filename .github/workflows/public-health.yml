@@ -59,5 +59,6 @@ jobs:
           print(json.dumps({'sites':rows,'confirmed_failure':failed,'verification_incomplete':unverified},ensure_ascii=False,indent=2))
           summary='## Owned sites monitor\n\n| Site | Result | HTTP |\n|---|---|---|\n'+''.join(f'| {r["site"]} | {r["result"]} | {r.get("http","-")} |\n' for r in rows)+'\n403/429 or network errors mean this checker could not verify access; they do not prove an outage. No catalog, publisher or WhatsApp changes were made.\n'
           if os.environ.get('GITHUB_STEP_SUMMARY'):Path(os.environ['GITHUB_STEP_SUMMARY']).write_text(summary)
-          raise SystemExit(1 if failed else 2 if unverified else 0)
+          if unverified:print('::warning::Some sites could not be verified. See the summary; this is not evidence of an outage.')
+          raise SystemExit(1 if failed else 0)
           PYCODE
