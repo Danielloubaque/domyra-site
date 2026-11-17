@@ -17,11 +17,11 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PYCODE'
-          import urllib.request,urllib.error,json,os
+          import urllib.request,urllib.error,json,os,ssl,socket
           from datetime import datetime,timezone
           from pathlib import Path
           sites={
-           'Domyra':'https://danielloubaque.github.io/domyra-site/',
+           'Domyra':'https://domyra.net.br/',
            'Vyntriva Tech':'https://vyntriva-tech.onrender.com/',
            'Achopreco':'https://www.xn--achopreo-y0a.com.br/',
            'Steady Income Journal':'https://steadyincomejournal.blogspot.com/',
@@ -45,6 +45,16 @@ jobs:
             if ex.code in [401,403,429]:unverified=True
            except Exception as ex:
             item.update(result='check_unverified',error_type=type(ex).__name__);unverified=True
+           rows.append(item)
+          for host in ['domyra.net.br','www.domyra.net.br']:
+           item={'site':'Domyra TLS '+host,'url':'https://'+host+'/'}
+           try:
+            with socket.create_connection((host,443),timeout=15) as raw:
+             with ssl.create_default_context().wrap_socket(raw,server_hostname=host) as tls:
+              cert=tls.getpeercert();days=(ssl.cert_time_to_seconds(cert['notAfter'])-datetime.now(timezone.utc).timestamp())/86400
+              item.update(result='tls_valid' if days>14 else 'tls_expiring',expires=cert['notAfter'],days_remaining=round(days,1))
+              if days<=14:failed=True
+           except Exception as ex:item.update(result='tls_failure',error_type=type(ex).__name__);failed=True
            rows.append(item)
           print(json.dumps({'sites':rows,'confirmed_failure':failed,'verification_incomplete':unverified},ensure_ascii=False,indent=2))
           summary='## Owned sites monitor\n\n| Site | Result | HTTP |\n|---|---|---|\n'+''.join(f'| {r["site"]} | {r["result"]} | {r.get("http","-")} |\n' for r in rows)+'\n403/429 or network errors mean this checker could not verify access; they do not prove an outage. No catalog, publisher or WhatsApp changes were made.\n'
