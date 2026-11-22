@@ -10,6 +10,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   check:
+    name: ${{ matrix.site }} health
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [Domyra, Vyntriva Tech, Achopreco, Steady Income Journal, American Civic Brief]
+    env:
+      TARGET_SITE: ${{ matrix.site }}
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -17,7 +24,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PYCODE'
-          import urllib.request,urllib.error,json,os,ssl,socket
+          import urllib.request,urllib.error,json,os,ssl,socket,time
           from datetime import datetime,timezone
           from pathlib import Path
           sites={
@@ -26,14 +33,24 @@ jobs:
            'Achopreco':'https://www.xn--achopreo-y0a.com.br/',
            'Steady Income Journal':'https://steadyincomejournal.blogspot.com/',
            'American Civic Brief':'https://americancivicbrief.blogspot.com/'}
+          sites={name:url for name,url in sites.items() if name==os.environ['TARGET_SITE']}
+          def open_with_retry(url):
+           request=urllib.request.Request(url,headers={'User-Agent':'Vyntriva-Owned-Sites-Health/1.1'})
+           for attempt in range(3):
+            try:return urllib.request.urlopen(request,timeout=20)
+            except urllib.error.HTTPError as ex:
+             if ex.code not in [429,502,503,504] or attempt==2:raise
+            except (TimeoutError,urllib.error.URLError):
+             if attempt==2:raise
+            time.sleep(2**(attempt+1))
           rows=[];failed=False;unverified=False
           for name,url in sites.items():
            item={'site':name,'url':url,'checked_at':datetime.now(timezone.utc).isoformat()}
            try:
-            with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'Vyntriva-Owned-Sites-Health/1.0'}),timeout=20) as r:
+            with open_with_retry(url) as r:
              content=r.read(2000000).decode('utf-8');item.update(http=r.status,result='reachable',bytes_read=len(content))
             if 'blogspot.com' in url:
-             with urllib.request.urlopen(url+'feeds/posts/default?alt=json&max-results=1',timeout=20) as r:feed=json.load(r)
+             with open_with_retry(url+'feeds/posts/default?alt=json&max-results=1') as r:feed=json.load(r)
              entries=feed['feed'].get('entry',[])
              if not entries:raise ValueError('No published articles in feed')
              latest=entries[0];published=latest['published']['$t'];age=(datetime.now(timezone.utc)-datetime.fromisoformat(published.replace('Z','+00:00'))).total_seconds()/3600
@@ -46,7 +63,7 @@ jobs:
            except Exception as ex:
             item.update(result='check_unverified',error_type=type(ex).__name__);unverified=True
            rows.append(item)
-          for host in ['domyra.net.br','www.domyra.net.br']:
+          for host in (['domyra.net.br','www.domyra.net.br'] if 'Domyra' in sites else []):
            item={'site':'Domyra TLS '+host,'url':'https://'+host+'/'}
            try:
             with socket.create_connection((host,443),timeout=15) as raw:
@@ -57,7 +74,7 @@ jobs:
            except Exception as ex:item.update(result='tls_failure',error_type=type(ex).__name__);failed=True
            rows.append(item)
           print(json.dumps({'sites':rows,'confirmed_failure':failed,'verification_incomplete':unverified},ensure_ascii=False,indent=2))
-          summary='## Owned sites monitor\n\n| Site | Result | HTTP |\n|---|---|---|\n'+''.join(f'| {r["site"]} | {r["result"]} | {r.get("http","-")} |\n' for r in rows)+'\n403/429 or network errors mean this checker could not verify access; they do not prove an outage. No catalog, publisher or WhatsApp changes were made.\n'
+          summary='## '+os.environ['TARGET_SITE']+' monitor\n\n| Site | Result | HTTP |\n|---|---|---|\n'+''.join(f'| {r["site"]} | {r["result"]} | {r.get("http","-")} |\n' for r in rows)+'\n403/429 or network errors mean this checker could not verify access; they do not prove an outage. No catalog, publisher or WhatsApp changes were made.\n'
           if os.environ.get('GITHUB_STEP_SUMMARY'):Path(os.environ['GITHUB_STEP_SUMMARY']).write_text(summary)
           if unverified:print('::warning::Some sites could not be verified. See the summary; this is not evidence of an outage.')
           raise SystemExit(1 if failed else 0)
