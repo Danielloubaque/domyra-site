@@ -1,8 +1,8 @@
 # DOMYRA / operation and recovery
 
-Live: https://danielloubaque.github.io/domyra-site/
+Live: https://domyra.net.br/ (GitHub Pages com domínio personalizado via CNAME)
 
-Static HTML on GitHub Pages. Source is index.html; no build dependencies. Preserve Pages configuration, main branch and the existing phone +55 15 99189-7820 (different from Vyntriva). Services: residential electrical work and residential/industrial automation in Sorocaba/Votorantim. No custom domain was found in this source snapshot.
+Static HTML on GitHub Pages. Source is index.html; no build dependencies. Preserve Pages configuration, CNAME (`domyra.net.br`), main branch and the existing phone +55 15 99189-7820 (different from Vyntriva). Services: residential electrical work and residential/industrial automation in Sorocaba/Votorantim.
 
 Quote flow prepares a preview and opens WhatsApp for visitor confirmation; no backend delivery is configured. SEO metadata, sitemap and robots are tracked. Test on mobile before changing source. Rollback: restore the last tested commit; verify the Pages deployment rather than assuming a commit is published. Do not expose customer data or credentials.
 
